@@ -1,7 +1,7 @@
 import { WebSocket } from "ws";
 import { initializeQuiz, generateAndSendQuizQuestion, handleQuizControlMessage } from "../quiz";
 import { createSession, getSession, removeSession, sessions } from "../managers/session-manager";
-import { processQuizAnswer, processDialogueEcho } from "../services/audio-processor";
+import { processDialogueEcho } from "../services/audio-processor";
 import { generateScenarioGreeting, generateConversationStarter } from "../services/llm/conversation";
 
 
@@ -90,15 +90,24 @@ export const handleMessage = async (ws: WebSocket, data: Buffer): Promise<void> 
     }
 
     if (message.end === true) {
-      if (session.mode === "quiz" && session.quiz?.isWaitingForAnswer) {
-        await processQuizAnswer(ws, session);
-      } else {
-        await processDialogueEcho(ws, session);
+      // Quiz mode no longer processes audio - answers are submitted via control messages
+      if (session.mode === "quiz") {
+        console.log("⚠️ Quiz mode does not process audio. Use submit_answer action instead.");
+        return;
       }
+      
+      // Process audio for dialogue and echo modes
+      await processDialogueEcho(ws, session);
       return;
     }
   } else {
     // Handle binary audio data
+    // Quiz mode doesn't use audio anymore, so ignore audio chunks in quiz mode
+    if (session.mode === "quiz") {
+      console.log("⚠️ Quiz mode does not accept audio data.");
+      return;
+    }
+    
     if (data.length > 0) {
       session.audioChunks.push(data);
     } else {
